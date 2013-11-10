@@ -8,7 +8,7 @@
 ###############################################################################
 
 from uuid import uuid4
-from morpy.const import UUID_REFERENCE
+from morpy.const import UUID_REFERENCE, UUID_PROPERTY
 
 class MoRPObject(object):
     '''
@@ -77,7 +77,7 @@ class Multiplicity(object):
     '''
     Element of the MoRP language that has multiplicity.
     '''
-    def __init__(self, lower_bound=0, upper_bound=1, **kwargs):
+    def __init__(self, lower_bound=1, upper_bound=1, **kwargs):
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
         super(Multiplicity, self).__init__(**kwargs)
@@ -92,58 +92,68 @@ class Model(NamedElement, MoRPObject):
     MoRP models are mapped to python object which are instances of this class.
     
     Attributes:
-        parent_model (Model): A model instance this model is child of.
+        owner (Model): A model instance this model is child of.
+        abstract(bool): Is this model instance abstract. Abstract instance cannot 
+                    have instances itself, i.e. meta links cannot reference abstract model.
         super_models (list of Model): A list of models this model inherits from.
         properties (list of Property): A list of properties for this model.
         references (list of Reference): A list of references for this model.
     '''
-    def __init__(self, meta, name, parent_model=None, super_models=None,
+    def __init__(self, meta, name, owner=None, abstract=False, super_models=None,
                  properties=None, references=None, **kwargs):
         '''
         Constructs a Model instance.
         '''
         super(Model, self).__init__(name=name, meta=meta, **kwargs)
 
-        self.parent_model = parent_model
-        self.child_models = []
-        if parent_model:
-            parent_model.add_child_model(self)
+        self.owner = None
+        self.abstract = abstract
+
+        self.inner_models = []
+        if owner:
+            owner.add_inner_model(self)
         
         self.super_models = []
         if super_models:
             for super_model in super_models:
                 self.add_super_model(super_model)
-        self.sub_models = []
+        self.inherited_models = []
         
         self.properties = properties or []
         self.references = references or []
         
     def get_top_level_model(self):
         '''
-        Returns model at the top of the parent chain.
+        Returns model at the top of the owner hierarchy.
         ''' 
-        top_level = self.parent_model
-        while top_level and top_level.parent_model:
-            top_level = top_level.parent_model
+        top_level = self.owner
+        while top_level and top_level.owner:
+            top_level = top_level.owner
         return top_level
     
     def get_model_by_uuid(self, uuid):
         '''
-        Returns child model with the given uuid.
+        Returns inner model with the given uuid.
         '''
-        for child_model in self.child_models:
-            if child_model.uuid == uuid:
-                return child_model
+        for inner_model in self.inner_models:
+            if inner_model.uuid == uuid:
+                return inner_model
         
     def create_reference(self, name, _type, containment=False, opposite=None, **kwargs):
-        morp = self.get_top_level_model()
+        from morpy import repository
+        morp = repository.morp
         reference_meta = morp.get_model_by_uuid(UUID_REFERENCE)
         reference = Reference(reference_meta, name, _type, self, containment, **kwargs)
         self.references.append(reference)
         return reference
     
-    def create_property(self):
-        pass
+    def create_property(self, name, _type, **kwargs):
+        from morpy import repository
+        morp = repository.morp
+        property_meta = morp.get_model_by_uuid(UUID_PROPERTY)
+        prop = Property(property_meta, name, _type, self, **kwargs)
+        self.properties.append(prop)
+        return prop
     
     def add_super_model(self, super_model):
         '''
@@ -152,7 +162,7 @@ class Model(NamedElement, MoRPObject):
             super_model(Model)
         '''
         self.super_models.append(super_model)
-        super_model.sub_models.append(self)
+        super_model.inherited_models.append(self)
         
     def remove_super_model(self, super_model):
         '''
@@ -162,25 +172,29 @@ class Model(NamedElement, MoRPObject):
         '''
         if super_model in self.super_models:
             self.super_models.remove(super_model)
-            super_model.sub_models.remove(self)
+            super_model.inherited_models.remove(self)
 
-    def add_child_model(self, child_model):
+    def add_inner_model(self, inner_model):
         '''
-        Adds child model to the collection of child models. Connects child model to the parent.
+        Adds inner model to the collection of inner models. Connects inner model to this instance as its owner.
         Args:
-            child_model(Model)
+            inner_model(Model)
         '''
-        self.child_models.append(child_model)
-        child_model.parent_model = self
+        # If inner model already has an owner remove it from owners inner models collection.
+        if inner_model.owner:
+            inner_model.owner.remove_inner_model(inner_model)
         
-    def remove_child_model(self, child_model):
+        self.inner_models.append(inner_model)
+        inner_model.owner = self
+        
+    def remove_inner_model(self, inner_model):
         '''
-        Removes child model from the collection of child models. Disconnects child model from the parent.
+        Removes inner model from the collection of inner models. Disconnects inner model from the owner.
         Args:
-            child_model(Model)
+            inner_model(Model)
         '''
-        self.child_models.remove(child_model)
-        child_model.parent_model = None
+        self.inner_models.remove(inner_model)
+        inner_model.owner = None
         
     
 class Property(Multiplicity, NamedElement, MoRPObject):
@@ -213,6 +227,8 @@ class Reference(Multiplicity, NamedElement, MoRPObject):
         self.owner = owner
         self.containment = containment
         self.opposite = opposite
+        if opposite:
+            opposite.opposite = self
         
         
 class PrimitiveType(MoRPObject):

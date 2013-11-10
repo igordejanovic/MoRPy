@@ -9,8 +9,6 @@ class MoRPTest(unittest.TestCase):
         
         from morpy import repository
         
-        morp = repository.get_MoRP()
-        
-        print morp.child_models
+        print repository.morp.inner_models
         
         
