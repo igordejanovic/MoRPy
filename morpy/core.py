@@ -8,7 +8,7 @@
 ###############################################################################
 
 from uuid import uuid4
-from morpy.const import UUID_REFERENCE, UUID_PROPERTY
+from morpy.const import UUID_REFERENCE, UUID_PROPERTY, UUID_MODEL
 
 class MoRPObject(object):
     '''
@@ -64,7 +64,7 @@ class MoRPObject(object):
 #        directly mapped to Python type instances.    
 
        
-class NamedElement(object):
+class NamedElement(MoRPObject):
     '''
     Element of the MoRP language that has 'name' Property.
     '''
@@ -73,7 +73,7 @@ class NamedElement(object):
         super(NamedElement, self).__init__(**kwargs)
         
         
-class Multiplicity(object):
+class Multiplicity(MoRPObject):
     '''
     Element of the MoRP language that has multiplicity.
     '''
@@ -83,7 +83,7 @@ class Multiplicity(object):
         super(Multiplicity, self).__init__(**kwargs)
 
     
-class Model(NamedElement, MoRPObject):
+class Model(NamedElement):
     '''
     Model is the main concept of MoRP meta-language.
     It defines other concepts including itself.
@@ -99,11 +99,19 @@ class Model(NamedElement, MoRPObject):
         properties (list of Property): A list of properties for this model.
         references (list of Reference): A list of references for this model.
     '''
-    def __init__(self, meta, name, owner=None, abstract=False, super_models=None,
+    def __init__(self, name, owner=None, abstract=False, super_models=None,
                  properties=None, references=None, **kwargs):
         '''
         Constructs a Model instance.
         '''
+        from morpy import repository
+        
+        # Special case. Model conforms to itself.
+        if kwargs.get('uuid') == UUID_MODEL:
+            meta = self
+        else:
+            meta = repository.model
+            
         super(Model, self).__init__(name=name, meta=meta, **kwargs)
 
         self.owner = None
@@ -140,18 +148,12 @@ class Model(NamedElement, MoRPObject):
                 return inner_model
         
     def create_reference(self, name, _type, containment=False, opposite=None, **kwargs):
-        from morpy import repository
-        morp = repository.morp
-        reference_meta = morp.get_model_by_uuid(UUID_REFERENCE)
-        reference = Reference(reference_meta, name, _type, self, containment, **kwargs)
+        reference = Reference(name, _type, self, containment, **kwargs)
         self.references.append(reference)
         return reference
     
     def create_property(self, name, _type, **kwargs):
-        from morpy import repository
-        morp = repository.morp
-        property_meta = morp.get_model_by_uuid(UUID_PROPERTY)
-        prop = Property(property_meta, name, _type, self, **kwargs)
+        prop = Property(name, _type, self, **kwargs)
         self.properties.append(prop)
         return prop
     
@@ -196,8 +198,14 @@ class Model(NamedElement, MoRPObject):
         self.inner_models.remove(inner_model)
         inner_model.owner = None
         
+    def __iter__(self):
+        '''
+        Iteration over model returns inner models
+        '''    
+        return iter(self.inner_models)
     
-class Property(Multiplicity, NamedElement, MoRPObject):
+    
+class Property(Multiplicity, NamedElement):
     '''
     Properties belong to the Model instances.
     Attributes:
@@ -206,13 +214,14 @@ class Property(Multiplicity, NamedElement, MoRPObject):
         owner(Model): An ontological instance of the Model which designates
                         an owner of this property.
     '''
-    def __init__(self, meta, name, _type, owner, **kwargs):
-        super(Property, self).__init__(meta=meta, name=name, **kwargs)
+    def __init__(self, name, _type, owner, **kwargs):
+        from morpy import repository
+        super(Property, self).__init__(meta=repository.property, name=name, **kwargs)
         self._type = type
         self.owner = owner
     
     
-class Reference(Multiplicity, NamedElement, MoRPObject):
+class Reference(Multiplicity, NamedElement):
     '''
     Reference refer to other model instances.
     Attributes:
@@ -221,26 +230,14 @@ class Reference(Multiplicity, NamedElement, MoRPObject):
         containment(Boolean): Does this reference have a containment semantics.
         opposite(Model): The other side of the reference (for bidirectional references).
     '''
-    def __init__(self, meta, name, _type, owner, containment=False, opposite=None, **kwargs):
-        super(Reference, self).__init__(meta=meta, name=name, **kwargs)
+    def __init__(self, name, _type, owner, containment=False, opposite=None, **kwargs):
+        from morpy import repository
+        super(Reference, self).__init__(meta=repository.reference, name=name, **kwargs)
         self._type = _type
         self.owner = owner
         self.containment = containment
         self.opposite = opposite
         if opposite:
             opposite.opposite = self
-        
-        
-class PrimitiveType(MoRPObject):
-    '''
-    Abstract model that represents MoRP primitive types.
-    '''
-        
-class String(PrimitiveType):
-    pass
 
-class Integer(PrimitiveType):
-    pass
 
-class Boolean(PrimitiveType):
-    pass
