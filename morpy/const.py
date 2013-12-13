@@ -1,8 +1,11 @@
-'''
-Created on Oct 2, 2013
-
-@author: igor
-'''
+#-*- coding: utf-8 -*-
+#######################################################################
+# Name: const.py
+# Purpose: MoRP constants (e.g. names, uuids)
+# Author: Igor R. Dejanovic <igor DOT dejanovic AT gmail DOT com>
+# Copyright: (c) 2013 Igor R. Dejanovic <igor DOT dejanovic AT gmail DOT com>
+# License: MIT License
+#######################################################################
 
 # Names
 MORP = "MoRP"
@@ -58,7 +61,7 @@ UUID_MORP_MOGRAM = "38009665-4584-4fc4-89da-726c1e83834a"
 UUID_LANGUAGE = "c495da31-1af7-485e-b8f6-eec28cdfe1bc"
 UUID_LANGUAGE_ABSTRACT_SYNTAX = "302c1c68-f258-4d45-85dc-0b35baaf547b"
 UUID_LANGUAGE_GENERATOR_CONFS = "6e04e517-9837-4fa0-a529-70d82cfd52b2"
-UUID_LANGUAGE_EDITOR_CONFS = "editor_confs"
+UUID_LANGUAGE_EDITOR_CONFS = "ae250db6-8352-450c-bb4c-75194e0aa39e"
 
 UUID_MOGRAM = "4de21dbb-33bf-4d63-81fc-b9a94048d72e"
 UUID_MOGRAM_CONFORMS_TO = "e70bc7f3-ca17-4538-8dcb-9c15217f8e40"

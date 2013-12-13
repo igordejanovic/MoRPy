@@ -8,7 +8,7 @@
 ###############################################################################
 
 from uuid import uuid4
-from morpy.const import UUID_REFERENCE, UUID_PROPERTY, UUID_MODEL
+from morpy.const import UUID_MODEL, MORP
 
 class MoRPObject(object):
     '''
@@ -16,7 +16,7 @@ class MoRPObject(object):
     gives support for meta-modeling.
     
     Each non-abstract element of MoRP language must, directly or
-    indirectly inherit this class.
+    indirectly inherits this class.
     
     Each MoRP object is uniquely identified by UUID identifier. 
     
@@ -26,16 +26,16 @@ class MoRPObject(object):
     '''
     def __init__(self, meta, uuid=None):
         
-        # Special case for MoRP Model instantiation
-        if not meta:
-            self._meta = self
-        else:
-            self._meta = meta
+        self._meta = meta
         
         if not uuid:
             self._uuid = str(uuid4())
         else:
             self._uuid = uuid
+            
+        # Register this metaobject by its UUID in the MoRP repository.
+        from morpy import Workspace
+        Workspace().by_uuid[self._uuid] = self
             
     def __str__(self):
         # Special case for Model
@@ -49,8 +49,6 @@ class MoRPObject(object):
     
     def __repr__(self):
         return str(self)
-            
-            
         
     @property
     def meta(self):
@@ -60,10 +58,95 @@ class MoRPObject(object):
     def uuid(self):
         return self._uuid
     
-# Note:  Linguistic instances of the Property concepts are 
-#        directly mapped to Python type instances.    
 
-       
+class MoRPContainer(list):
+    '''
+    List specialization used for MoRP objects.
+    '''
+    
+    def by_meta(self, meta):
+        '''
+        Returns MoRPContainer filtered by given meta object.
+        Used for fluent interface pattern.
+        Args:
+            meta(MoRPObject)
+        '''
+        if isinstance(meta, basestring):
+            return MoRPContainer(filter(lambda o: hasattr(o.meta, 'name') \
+                                        and o.meta.name == meta, self))
+        else:
+            return MoRPContainer(filter(lambda o: o.meta == meta, self))
+        
+    def filter(self, predicate):
+        '''
+        Return MoRPContainer whose elements returns True if passed to predicate.
+        Used for fluent interface pattern.
+        Args:
+            predicate (callable): Filter predicate.
+        '''
+        return MoRPContainer(filter(predicate, self))
+
+
+class ModelContainer(MoRPObject):
+    '''
+    Superclass for all MoRP objects that can contain Model instances.
+    E.g. Mogram or Model.
+    '''
+    def __init__(self, **kwargs):
+        self.contents = MoRPContainer()
+         
+    def create_model(self, name, abstract=False):
+        model = Model(name, self, abstract)
+        self.contents.append(model)
+        return model
+    
+    def get_by_name(self, name):
+        return self.contents.get()
+    
+    def get_by_uuid(self, uuid):
+        pass
+    
+    def add_model(self, model):
+        '''
+        Adds model to the collection of contained models.
+        Connects model to this instance as its owner.
+        Args:
+            model(Model)
+        '''
+        # If model already has an owner remove it from current owner.
+        if model.owner:
+            model.owner.remove_model(model)
+        
+        self.contents.append(model)
+        model.owner = self
+        
+    def remove_model(self, model):
+        '''
+        Removes model from the collection of models. Disconnects model from the owner.
+        Args:
+            model(Model)
+        '''
+        self.contents.remove(model)
+        model.owner = None
+        
+    def __iter__(self):
+        '''
+        Iteration over contained models.
+        '''    
+        return iter(self.contents)
+    
+    def __contains__(self, model):
+        '''
+        Checks if model is present in this container. Used for "in" operator.
+        Args:
+            model (string or Model): Name of a model or model.
+        '''
+        if isinstance(model, basestring):
+            return bool([x for x in self.contents if x.name==model])
+        else:
+            return model in self.contents
+
+
 class NamedElement(MoRPObject):
     '''
     Element of the MoRP language that has 'name' Property.
@@ -83,7 +166,7 @@ class Multiplicity(MoRPObject):
         super(Multiplicity, self).__init__(**kwargs)
 
     
-class Model(NamedElement):
+class Model(NamedElement, ModelContainer):
     '''
     Model is the main concept of MoRP meta-language.
     It defines other concepts including itself.
@@ -104,22 +187,21 @@ class Model(NamedElement):
         '''
         Constructs a Model instance.
         '''
-        from morpy import repository
         
         # Special case. Model conforms to itself.
         if kwargs.get('uuid') == UUID_MODEL:
             meta = self
         else:
-            meta = repository.model
+            from morpy import Workspace
+            meta = Workspace().model
             
         super(Model, self).__init__(name=name, meta=meta, **kwargs)
 
         self.owner = None
         self.abstract = abstract
 
-        self.inner_models = []
         if owner:
-            owner.add_inner_model(self)
+            owner.add_model(self)
         
         self.super_models = []
         if super_models:
@@ -147,13 +229,13 @@ class Model(NamedElement):
             if inner_model.uuid == uuid:
                 return inner_model
         
-    def create_reference(self, name, _type, containment=False, opposite=None, **kwargs):
-        reference = Reference(name, _type, self, containment, **kwargs)
+    def create_reference(self, name, type, containment=False, opposite=None, **kwargs):  # @ReservedAssignment
+        reference = Reference(name, type, self, containment, **kwargs)
         self.references.append(reference)
         return reference
     
-    def create_property(self, name, _type, **kwargs):
-        prop = Property(name, _type, self, **kwargs)
+    def create_property(self, name, type, **kwargs):  # @ReservedAssignment
+        prop = Property(name, type, self, **kwargs)
         self.properties.append(prop)
         return prop
     
@@ -176,48 +258,20 @@ class Model(NamedElement):
             self.super_models.remove(super_model)
             super_model.inherited_models.remove(self)
 
-    def add_inner_model(self, inner_model):
-        '''
-        Adds inner model to the collection of inner models. Connects inner model to this instance as its owner.
-        Args:
-            inner_model(Model)
-        '''
-        # If inner model already has an owner remove it from owners inner models collection.
-        if inner_model.owner:
-            inner_model.owner.remove_inner_model(inner_model)
-        
-        self.inner_models.append(inner_model)
-        inner_model.owner = self
-        
-    def remove_inner_model(self, inner_model):
-        '''
-        Removes inner model from the collection of inner models. Disconnects inner model from the owner.
-        Args:
-            inner_model(Model)
-        '''
-        self.inner_models.remove(inner_model)
-        inner_model.owner = None
-        
-    def __iter__(self):
-        '''
-        Iteration over model returns inner models
-        '''    
-        return iter(self.inner_models)
-    
     
 class Property(Multiplicity, NamedElement):
     '''
     Properties belong to the Model instances.
     Attributes:
-        _type (PrimitiveType): An ontological instance of the PrimitiveType which
+        type (PrimitiveType): An ontological instance of the PrimitiveType which
                     represents the type of the property.
         owner(Model): An ontological instance of the Model which designates
                         an owner of this property.
     '''
-    def __init__(self, name, _type, owner, **kwargs):
-        from morpy import repository
-        super(Property, self).__init__(meta=repository.property, name=name, **kwargs)
-        self._type = type
+    def __init__(self, name, type, owner, **kwargs):  # @ReservedAssignment
+        from morpy import Workspace
+        super(Property, self).__init__(meta=Workspace().prop, name=name, **kwargs)
+        self.type = type
         self.owner = owner
     
     
@@ -225,15 +279,15 @@ class Reference(Multiplicity, NamedElement):
     '''
     Reference refer to other model instances.
     Attributes:
-        _type (Model): An ontological Model instance this reference points to.
+        type (Model): An ontological Model instance this reference points to.
         owner(Model): An ontological instance of the Model that owns this reference.
         containment(Boolean): Does this reference have a containment semantics.
         opposite(Model): The other side of the reference (for bidirectional references).
     '''
-    def __init__(self, name, _type, owner, containment=False, opposite=None, **kwargs):
-        from morpy import repository
-        super(Reference, self).__init__(meta=repository.reference, name=name, **kwargs)
-        self._type = _type
+    def __init__(self, name, type, owner, containment=False, opposite=None, **kwargs):  # @ReservedAssignment
+        from morpy import Workspace
+        super(Reference, self).__init__(meta=Workspace().reference, name=name, **kwargs)
+        self.type = type
         self.owner = owner
         self.containment = containment
         self.opposite = opposite
@@ -241,3 +295,62 @@ class Reference(Multiplicity, NamedElement):
             opposite.opposite = self
 
 
+class Language(NamedElement):
+    '''
+    Represents a MoRP language.
+    
+    Attributes:
+        name(string):
+        abstract_syntax(Mogram): An language abstract syntax given in MoRP language.
+        concrete_syntaxes(list of Mogram): Defines concrete syntaxes in the form of 
+                editor configuration mograms.
+        generators(list of Mogram): Defines a language semantics in the form of 
+                generator configuration mograms.
+    '''
+    
+    def __init__(self, name, abssyn_uuid=None, **kwargs):
+        from morpy import Workspace
+        super(Language, self).__init__(name=name, meta=Workspace().model, **kwargs)
+        
+        # Special case. If this instance represents MoRP language its
+        # abstract syntax is defined in this language.
+        # This must be specified in this way because MoRP language is 
+        # not defined at this point yet. 
+        if name=='MoRP':
+            abssyn_language = self
+        else:
+            # Currently the only language for abstract syntax definition is MoRP
+            abssyn_language = Workspace().morp
+            
+        self.abstract_syntax = Mogram(name, conforms_to=abssyn_language, 
+                                      language=self, uuid=abssyn_uuid)
+        self.concrete_syntaxes = []
+        self.generators = []
+        
+
+class Mogram(NamedElement, ModelContainer):
+    '''
+    Represents a mogram given in some language.
+    
+    Attributes:
+        name (string): A name of this mogram.
+        conforms_to (Mogram): An abstract syntax of the language this mogram conforms to.
+        language (Language): If this mogram is part of some language definition this reference
+                will contain instance of containing Language.
+    '''
+    def __init__(self, name, conforms_to, language=None, **kwargs):
+        from morpy import Workspace
+        super(Mogram, self).__init__(name=name, meta=Workspace().model, **kwargs)
+        
+        self.contents = []
+        if not conforms_to and name==MORP:
+            # MoRP abstract syntax conforms to itself.
+            self.conforms_to = self
+        else:
+            self.conforms_to = conforms_to
+        self.language = language
+        
+
+
+    
+        
