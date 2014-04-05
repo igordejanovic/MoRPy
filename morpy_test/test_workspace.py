@@ -22,7 +22,7 @@ class MoRPTest(unittest.TestCase):
     
     def test_MoRPRepository_is_singleton(self):
         
-        self.assertEqual(id(Workspace()), id(Workspace()))
+        self.assertTrue(Workspace() is Workspace())
     
     def test_find_by_uuid(self):
         '''
