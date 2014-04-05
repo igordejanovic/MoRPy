@@ -33,7 +33,7 @@ class MoRPObject(object):
         else:
             self._uuid = uuid
             
-        # Register this metaobject by its UUID in the MoRP repository.
+        # Register this metaobject by its UUID in the MoRP workspace.
         from morpy import Workspace
         Workspace().by_uuid[self._uuid] = self
             
@@ -67,11 +67,11 @@ class MoRPContainer(list):
     def by_meta(self, meta):
         '''
         Returns MoRPContainer filtered by given meta object.
-        Used for fluent interface pattern.
+        Using fluent interface pattern.
         Args:
             meta(MoRPObject)
         '''
-        if isinstance(meta, basestring):
+        if isinstance(meta, str):
             return MoRPContainer(filter(lambda o: hasattr(o.meta, 'name') \
                                         and o.meta.name == meta, self))
         else:
@@ -80,7 +80,7 @@ class MoRPContainer(list):
     def filter(self, predicate):
         '''
         Return MoRPContainer whose elements returns True if passed to predicate.
-        Used for fluent interface pattern.
+        Using fluent interface pattern.
         Args:
             predicate (callable): Filter predicate.
         '''
@@ -93,6 +93,7 @@ class ModelContainer(MoRPObject):
     E.g. Mogram or Model.
     '''
     def __init__(self, **kwargs):
+        super(ModelContainer, self).__init__(**kwargs)
         self.contents = MoRPContainer()
          
     def create_model(self, name, abstract=False):
@@ -141,7 +142,7 @@ class ModelContainer(MoRPObject):
         Args:
             model (string or Model): Name of a model or model.
         '''
-        if isinstance(model, basestring):
+        if isinstance(model, str):
             return bool([x for x in self.contents if x.name==model])
         else:
             return model in self.contents
@@ -301,7 +302,7 @@ class Language(NamedElement):
     
     Attributes:
         name(string):
-        abstract_syntax(Mogram): An language abstract syntax given in MoRP language.
+        abstract_syntax(Mogram): A language abstract syntax given in the MoRP language.
         concrete_syntaxes(list of Mogram): Defines concrete syntaxes in the form of 
                 editor configuration mograms.
         generators(list of Mogram): Defines a language semantics in the form of 

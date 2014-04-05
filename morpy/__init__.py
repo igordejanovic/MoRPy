@@ -1,7 +1,8 @@
 #-*- coding: utf-8 -*-
 #######################################################################
 # Name: morpy
-# Purpose: Workspace is a singleton class that holds all MoRP objects
+# Purpose: Workspace is a singleton class that contains languages and
+# mograms
 # 
 # Author: Igor R. Dejanovic <igor DOT dejanovic AT gmail DOT com>
 # Copyright: (c) 2013 Igor R. Dejanovic <igor DOT dejanovic AT gmail DOT com>
@@ -111,6 +112,7 @@ class Workspace(object):
         # Model model is the top of "meta" hierarchy (everything is model)
         # so it must be defined first.
         model = Model(name=MODEL, uuid=UUID_MODEL)
+
         # Caching model model for easy access
         self._model = model
         
