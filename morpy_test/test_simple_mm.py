@@ -9,6 +9,7 @@
 
 import unittest
 from morpy import Workspace
+from morpy.const import UUID_PRIMITIVE_TYPES_INTEGER
 
 class SimpleMMTest(unittest.TestCase):
             
@@ -36,4 +37,15 @@ class SimpleMMTest(unittest.TestCase):
         '''
         mogram = Workspace().create_mogram('Gate', 'MoRP')
         mogram.create_model('Machine')
+        
+    def test_property_meta_access(self):
+        '''
+        Tests that property defined in meta Model is used on Model instance.
+        '''
+        lang = Workspace().create_language('TestPropertyLang')
+        asyn = lang.abstract_syntax
+        
+        myconcept = asyn.create_model('MyConcept')
+        prop = myconcept.create_property('myprop', \
+                    Workspace().morp.by_uuid(UUID_PRIMITIVE_TYPES_INTEGER))
         
