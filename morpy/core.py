@@ -109,7 +109,7 @@ class ModelContainer(MoRPObject):
         self.contents.append(model)
         return model
 
-    def get_by_name(self, name):
+    def by_name(self, name):
         '''
         Return contained model with the given name.
         Args:
@@ -119,11 +119,11 @@ class ModelContainer(MoRPObject):
             if model.name == name:
                 return model
             # Do depth-first search down the containment tree.
-            inner_model = model.get_by_name(name)
+            inner_model = model.by_name(name)
             if inner_model is not None:
                 return inner_model
 
-    def get_by_uuid(self, uuid):
+    def by_uuid(self, uuid):
         '''
         Return contained model with the given uuid.
         '''
@@ -131,7 +131,7 @@ class ModelContainer(MoRPObject):
             if model.uuid == uuid:
                 return model
             # Do depth-first search down the containment tree.
-            inner_model = model.get_by_uuid(uuid)
+            inner_model = model.by_uuid(uuid)
             if inner_model is not None:
                 return inner_model
 
