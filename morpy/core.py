@@ -110,7 +110,18 @@ class ModelContainer(MoRPObject):
         return model
 
     def get_by_name(self, name):
-        return self.contents.get()
+        '''
+        Return contained model with the given name.
+        Args:
+            name(string):
+        '''
+        for model in self.contents:
+            if model.name == name:
+                return model
+            # Do depth-first search down the containment tree.
+            inner_model = model.get_by_name(name)
+            if inner_model is not None:
+                return inner_model
 
     def get_by_uuid(self, uuid):
         '''
