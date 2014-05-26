@@ -105,7 +105,7 @@ class ModelContainer(MoRPObject):
             name(string): The name of the model.
             abstract(bool): Is this model abstract?
         """
-        model = Model(name, self, abstract)
+        model = Model(name=name, owner=self, abstract=abstract)
         self.contents.append(model)
         return model
 
@@ -256,12 +256,14 @@ class Model(NamedElement, ModelContainer):
 
     def create_reference(self, name, type, containment=False, opposite=None,  # @ReservedAssignment @IgnorePep8
                          **kwargs):  # @IgnorePep8
-        reference = Reference(name, type, self, containment, **kwargs)
+        reference = Reference(name=name, type=type, owner=self,
+                              containment=containment, opposite=opposite,
+                              **kwargs)
         self.references.append(reference)
         return reference
 
     def create_property(self, name, type, **kwargs):  # @ReservedAssignment
-        prop = Property(name, type, self, **kwargs)
+        prop = Property(name=name, type=type, owner=self, **kwargs)
         self.properties.append(prop)
         return prop
 
@@ -404,8 +406,8 @@ class Mogram(NamedElement, ModelContainer):
         name (string): A name of this mogram.
         conforms_to (Mogram): An abstract syntax of the language this mogram
             conforms to.
-        language (Language): If this mogram is part of some language
-            definition this reference will contain instance of containin
+        language (Language): If this mogram is a part of some language
+            definition this reference will contain instance of containing
             Language.
     '''
     def __init__(self, name, conforms_to, language=None, **kwargs):
@@ -413,10 +415,9 @@ class Mogram(NamedElement, ModelContainer):
         super(Mogram, self).__init__(name=name, meta=Workspace().model,
                                      **kwargs)
 
-        self.contents = []
         if not conforms_to and name == MORP:
-            # MoRP abstract syntax conforms to itself.
-            self.conforms_to = self
+            # MoRP abstract syntax conforms to MoRP language.
+            self.conforms_to = Workspace().morp
         else:
             self.conforms_to = conforms_to
         self.language = language
